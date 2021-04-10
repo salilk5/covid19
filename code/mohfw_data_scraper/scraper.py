@@ -9,21 +9,8 @@ import couchdb
 # I scripted this in urgency, So code quality or the logic isn't great.
 # This is mostly a hack. 
 
-# To RUN
-# Clone the project
-# Set up a virual environment 
-# Install everything in requirements
-# setup pushover_api_token, pushover_user_key and covid_db_full_url in env
-# needs couchdb
-# run this by calling `python3 scraper.py`
-# You can also schedule it using the digdag
 
-pushover_api_token =str(os.environ.get("pushover_api_token"))
-pushover_user_key = str(os.environ.get("pushover_user_key"))
-pushover_url = "https://api.pushover.net/1/messages.json"
-covid_db_full_url = str(os.environ.get("covid_db_full_url"))
 archive_folder_path = str(os.environ.get("archive_folder_path")) 
-force_run = True
 #date_pattern = "as on : \d\d July 2020, \d\d:\d\d "
 date_pattern = "as on : \d\d	July 2020, \d\d:\d\d "
 month_formatted = "07"
@@ -107,7 +94,7 @@ def getFormattedDate(t):
 	month = month_formatted
 
 	# year = date_parts[2]
-	year = "2020"
+	year = "2021"
 
 	time_parts = (parts[1]).split(" ")
 	am_pm = time_parts[1]
@@ -162,7 +149,7 @@ def scrape_now():
 
 	full_date_text =  getFormattedDate(extracted_date_text)
 	#for force run specific file or date
-	#full_date_text = "2020-05-01T08:00:00.00+05:30"
+	full_date_text = "2020-11-09T08-00-00-00+05-30"
 	full_file_name =  archive_folder_path.format(getFileName(full_date_text))
 
 	print(full_file_name)
@@ -172,7 +159,7 @@ def scrape_now():
 	title = title +"extracted_date_text "+str(extracted_date_text)						
 	message = message + "full_file_name ="+ full_file_name +" \n"
 	message = message +  "full_date_text ="+ full_date_text +" \n"
-
+	print(force_run)
 	if path.exists(full_file_name):
 		message = message +  " FILE EXISTS NOTHING TO BE DONE \n"
 		print("FILE Exists and nothing to be done")
@@ -190,78 +177,6 @@ def scrape_now():
 		f.write(txt)
 		message = message +  " WRITING COMPLETE \n"
 
-	#get to parsing
-	soup = BeautifulSoup(txt, 'html.parser')
-	tables = soup.find_all('tbody')
-	if len(tables) > 0:
-		table = tables[0]
-		#print(table)
-		first_row = False
-		for tr in list(table.children):
-			if isinstance(tr, bs4.element.Tag): 
-				if first_row:
-					print("FIRST ROW")
-					first_row = False
-					continue
-
-				tds = list(tr.children)
-
-				if len(tds) > 1:
-					pass
-				else:
-					continue
-
-				if "Total number of" in str(tds[1].get_text()):
-					break
-
-
-				report_time = full_date_text
-				state = (tds[3]).get_text()
-				state = state.replace("Union Territory of ","")
-				state = state.strip()
-				state_code = ""
-				if state in states :
-					state_code = (states[state]).lower()
-				else:
-					sendMessage("ERROR WRONG STATE",  "Not found: {0}".format(state))
-					print("------> Wrong state {0}".format(state))
-					return 0
-
-				_id =  report_time+"|"+state_code
-
-				data = {}
-				data["_id"] = _id
-				data["state"] = state_code
-				data["report_time"] = report_time
-				data["confirmed"] =  int( (tds[11]).get_text() )
-				#data["confirmed_india"] =  int( (tds[5]).get_text() )
-				#data["confirmed_foreign"] = int( (tds[7]).get_text() )
-				data["cured"] = int( (tds[7]).get_text() )
-				data["death"] = int( (tds[9]).get_text().replace("#","") )
-				data["source"] ="mohfw"
-				data["type"] ="cases"
-
-				try:
-					if database[_id]:
-						print("***** EXISTS *****")
-						print(counter)
-						print(data)
-						message = message + " \n EXISTS " +str(_id) +" \n"
-				except couchdb.http.ResourceNotFound:
-						print("##### ADDING #####")
-						print(counter)
-						message = message + " \n ADDING " +str(_id) +" \n"
-						#database.save(data)	
-						print(data)
-				counter = counter + 1
-		print("SENDING message")
-		print(title)
-		print(message)
-		sendMessage(title, message)						
-	else:
-		message = message +  " ERROR: No Table found \n"
-		sendMessage(title, message)
-		print("No Table found")
 
 
 
